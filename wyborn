@@ -1862,169 +1862,202 @@ task.spawn(
             )
         end
 
-        if getgenv().WyvernConfig["Purchase Exploits"] then
-            local purchase = serv:Channel("Purchase Exploits")
-            local x_x =
-                game:GetService("HttpService"):JSONDecode(
-                game:HttpGet(
-                    "https://apis.roblox.com/developer-products/v1/developer-products/list?universeId=" ..
-                        game.GameId .. "&page=1"
-                )
-            )
-            local dnames = {}
-            local dproductIds = {}
-            if type(x_x.DeveloperProducts) == "nil" then
-                table.insert(dnames, " ")
+if getgenv().WyvernConfig["Purchase Exploits"] then
+    local purchase = serv:Channel("Purchase Exploits")
+
+    -- Get Developer Products
+    local products = {}
+    local loopAll = false
+
+    local function SafePurchase(productId)
+        pcall(function()
+            MarketplaceService:SignalPromptProductPurchaseFinished(LocalPlayer.UserId, productId, true)
+            local remotes = {"PurchaseProduct", "BuyItem", "AttemptPurchase"}
+            for _, name in ipairs(remotes) do
+                local remote = game:GetService("ReplicatedStorage"):FindFirstChild(name)
+                if remote then
+                    if remote:IsA("RemoteEvent") then
+                        remote:FireServer(productId)
+                    elseif remote:IsA("RemoteFunction") then
+                        remote:InvokeServer(productId)
+                    end
+                end
             end
+        end)
+    end
 
-            pcall(
-                function()
-                    local currentPage = 1
+    local function LoadProducts()
+        local productList = {}
+        local success, pages = pcall(function()
+            return MarketplaceService:GetDeveloperProductsAsync()
+        end)
 
-                    repeat
-                        local response =
-                            game:HttpGet(
-                            "https://apis.roblox.com/developer-products/v1/developer-products/list?universeId=" ..
-                                tostring(game.GameId) .. "&page=" .. tostring(currentPage)
-                        )
-                        local decodedResponse = game:GetService("HttpService"):JSONDecode(response)
-                        local developerProducts = decodedResponse.DeveloperProducts
-                        print("Page " .. currentPage .. ":")
-                        for _, developerProduct in pairs(developerProducts) do
-                            table.insert(dnames, developerProduct.Name)
-                            table.insert(dproductIds, developerProduct.ProductId)
-                        end
-                        currentPage = currentPage + 1
-                        local final = decodedResponse.FinalPage
-                    until final
+        if success and pages then
+            repeat
+                local items = pages:GetCurrentPage()
+                for _, product in ipairs(items) do
+                    table.insert(productList, {
+                        id = product.ProductId,
+                        name = product.Name,
+                        price = product.PriceInRobux
+                    })
                 end
-            )
-            purchase:Label("Fake Purchaser!\nThis tricks server that you bought a DevProduct!")
-            purchase:Label("Only works in some games...")
-            local index
-            purchase:Dropdown(
-                "Below is a list of all DevProducts in this game!",
-                dnames,
-                function(x)
-                    index = nil
-                    for i, name in ipairs(dnames) do
-                        if name == x then
-                            index = i
-                            break
-                        end
-                    end
+            until pages.IsFinished or not pages:AdvanceToNextPage()
+        end
+
+        return #productList > 0 and productList or {{id = 0, name = "No products found", price = 0}}
+    end
+
+    local function LoopPurchaseAll()
+        while loopAll and task.wait(0.01) do
+            for _, product in ipairs(products) do
+                if product.id ~= 0 then
+                    task.spawn(SafePurchase, product.id)
                 end
-            )
-            getgenv().wyvernlooppurchases = false
-            purchase:Label("If nothing shows above, no DevProducts found.")
-            purchase:Toggle(
-                "Loop Selected Dev Product",
-                false,
-                function(bool)
-                    getgenv().wyvernlooppurchases = bool
-                    while getgenv().wyvernlooppurchases == true and task.wait() do
-                        if index then
-                            local product = dproductIds[index]
-                            pcall(
-                                function()
-                                    stealth_call(
-                                        "MarketplaceService:SignalPromptProductPurchaseFinished(game.Players.LocalPlayer.UserId, " ..
-                                            product .. ", true) "
-                                    )
-                                end
-                            )
-                        end
-                    end
-                end
-            )
-            purchase:Button(
-                "Fire Selected Dev Product!",
-                function()
-                    if index then
-                        local product = dproductIds[index]
-                        pcall(
-                            function()
-                                stealth_call(
-                                    "MarketplaceService:SignalPromptProductPurchaseFinished(game.Players.LocalPlayer.UserId, " ..
-                                        product .. ", true) "
-                                )
-                            end
-                        )
-                        task.wait(0.2)
-                        if not Visit:FindFirstChild("LocalScript") then
-                            discord:Notification(
-                                "Error",
-                                "Your executor blocked function SignalPromptProductPurchaseFinished.",
-                                "Okay!"
-                            )
-                        else
-                            discord:Notification(
-                                "Success",
-                                "Fired PromptProductPurchaseFinished signal to server with productId: " ..
-                                    tostring(product),
-                                "Okay!"
-                            )
-                            Visit:FindFirstChild("LocalScript"):Destroy()
-                        end
-                    else
-                        discord:Notification("Error", "Something went wrong but I don't know what.", "Okay!")
-                    end
-                end
-            )
-            purchase:Button(
-                "Fire All Dev Products",
-                function()
-                    getrenv()._set = clonefunction(setthreadidentity)
-                    local starttickcc = tick()
-                    for i, product in pairs(dproductIds) do
-                        task.spawn(
-                            function()
-                                pcall(
-                                    function()
-                                        stealth_call(
-                                            "MarketplaceService:SignalPromptProductPurchaseFinished(game.Players.LocalPlayer.UserId, " ..
-                                                product .. ", true) "
-                                        )
-                                    end
-                                )
-                            end
-                        )
-                        task.wait()
-                    end
-                    local endtickcc = tick()
-                    local durationxd = endtickcc - starttickcc
-                    discord:Notification(
-                        "Attempt",
-                        "Fired All Dev Products! Took " .. tostring(durationxd) .. " Seconds!",
-                        "Okay!"
-                    )
-                end
-            )
-            getgenv().wyvernlooppurchases2 = false
-            purchase:Toggle(
-                "Loop All Dev Products",
-                false,
-                function(bool)
-                    getgenv().wyvernlooppurchases2 = bool
-                    while getgenv().wyvernlooppurchases2 == true and task.wait() do
-                        for i, product in pairs(dproductIds) do
-                            task.spawn(
-                                function()
-                                    pcall(
-                                        function()
-                                            stealth_call(
-                                                "MarketplaceService:SignalPromptProductPurchaseFinished(game.Players.LocalPlayer.UserId, " ..
-                                                    product .. ", true) "
-                                            )
-                                        end
-                                    )
-                                end
-                            )
-                            task.wait()
-                        end
-                    end
-                end
-            )
+            end
+        end
+    end
+
+    -- UI for product purchase
+    local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/bloodball/-back-ups-for-libs/main/wizard"))()
+    local window = Library:NewWindow("Auto Purchase")
+    local productsTab = window:NewSection("Ghost dev Products")
+
+    -- Load Products into the UI
+    products = LoadProducts()
+    productsTab = window:NewSection("Products (" .. #products .. ")")
+
+    productsTab:CreateToggle("LOOP BUY ALL", false, function(state)
+        loopAll = state
+        if state then
+            LoopPurchaseAll()
+        end
+    end)
+
+    productsTab:CreateButton("BUY ALL NOW", function()
+        for _, product in ipairs(products) do
+            if product.id ~= 0 then
+                task.spawn(SafePurchase, product.id)
+            end
+        end
+    end)
+
+    for _, product in ipairs(products) do
+        productsTab:CreateButton(product.name .. " (" .. product.price .. " R$)", function()
+            SafePurchase(product.id)
+        end)
+    end
+
+    productsTab:CreateButton("Refresh List", function()
+        products = LoadProducts()
+        CreateUI()
+    end)
+
+    -- Old product purchase handling logic (if still needed)
+    local x_x = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://apis.roblox.com/developer-products/v1/developer-products/list?universeId=" .. game.GameId .. "&page=1"))
+    local dnames = {}
+    local dproductIds = {}
+
+    if type(x_x.DeveloperProducts) == "nil" then
+        table.insert(dnames, " ")
+    end
+
+    pcall(function()
+        local currentPage = 1
+        repeat
+            local response = game:HttpGet("https://apis.roblox.com/developer-products/v1/developer-products/list?universeId=" .. tostring(game.GameId) .. "&page=" .. tostring(currentPage))
+            local decodedResponse = game:GetService("HttpService"):JSONDecode(response)
+            local developerProducts = decodedResponse.DeveloperProducts
+            print("Page " .. currentPage .. ":")
+            for _, developerProduct in pairs(developerProducts) do
+                table.insert(dnames, developerProduct.Name)
+                table.insert(dproductIds, developerProduct.ProductId)
+            end
+            currentPage = currentPage + 1
+            local final = decodedResponse.FinalPage
+        until final
+    end)
+
+    -- Purchases for the new and old dev products
+    purchase:Label("Fake Purchaser!\nThis tricks server that you bought a DevProduct!")
+    purchase:Label("Only works in some games...")
+
+    local index
+    purchase:Dropdown("Below is a list of all DevProducts in this game!", dnames, function(x)
+        index = nil
+        for i, name in ipairs(dnames) do
+            if name == x then
+                index = i
+                break
+            end
+        end
+    end)
+
+    getgenv().wyvernlooppurchases = false
+    purchase:Label("If nothing shows above, no DevProducts found.")
+
+    purchase:Toggle("Loop Selected Dev Product", false, function(bool)
+        getgenv().wyvernlooppurchases = bool
+        while getgenv().wyvernlooppurchases == true and task.wait() do
+            if index then
+                local product = dproductIds[index]
+                pcall(function()
+                    stealth_call("MarketplaceService:SignalPromptProductPurchaseFinished(game.Players.LocalPlayer.UserId, " .. product .. ", true) ")
+                end)
+            end
+        end
+    end)
+
+    purchase:Button("Fire Selected Dev Product!", function()
+        if index then
+            local product = dproductIds[index]
+            pcall(function()
+                stealth_call("MarketplaceService:SignalPromptProductPurchaseFinished(game.Players.LocalPlayer.UserId, " .. product .. ", true) ")
+            end)
+            task.wait(0.2)
+            if not Visit:FindFirstChild("LocalScript") then
+                discord:Notification("Error", "Your executor blocked function SignalPromptProductPurchaseFinished.", "Okay!")
+            else
+                discord:Notification("Success", "Fired PromptProductPurchaseFinished signal to server with productId: " .. tostring(product), "Okay!")
+                Visit:FindFirstChild("LocalScript"):Destroy()
+            end
+        else
+            discord:Notification("Error", "Something went wrong but I don't know what.", "Okay!")
+        end
+    end)
+
+    purchase:Button("Fire All Dev Products", function()
+        getrenv()._set = clonefunction(setthreadidentity)
+        local starttickcc = tick()
+        for i, product in pairs(dproductIds) do
+            task.spawn(function()
+                pcall(function()
+                    stealth_call("MarketplaceService:SignalPromptProductPurchaseFinished(game.Players.LocalPlayer.UserId, " .. product .. ", true) ")
+                end)
+            end)
+            task.wait()
+        end
+        local endtickcc = tick()
+        local durationxd = endtickcc - starttickcc
+        discord:Notification("Attempt", "Fired All Dev Products! Took " .. tostring(durationxd) .. " Seconds!", "Okay!")
+    end)
+
+    getgenv().wyvernlooppurchases2 = false
+    purchase:Toggle("Loop All Dev Products", false, function(bool)
+        getgenv().wyvernlooppurchases2 = bool
+        while getgenv().wyvernlooppurchases2 == true and task.wait() do
+            for i, product in pairs(dproductIds) do
+                task.spawn(function()
+                    pcall(function()
+                        stealth_call("MarketplaceService:SignalPromptProductPurchaseFinished(game.Players.LocalPlayer.UserId, " .. product .. ", true) ")
+                    end)
+                end)
+                task.wait()
+            end
+        end
+    end)
+end
+
             purchase:Seperator()
             purchase:Label("Pretty much the same as the one above but for gamepass")
             local wyverngamepass =
