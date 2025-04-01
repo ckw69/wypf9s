@@ -1865,43 +1865,10 @@ task.spawn(
         if getgenv().WyvernConfig["Purchase Exploits"] then
             local purchase = serv:Channel("Purchase Exploits")
             local x_x =
-                local MarketplaceService = game:GetService("MarketplaceService")
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-
-local products = {}
-local autoBuy = false
-local buyDelay = 0.01
-
-local function buyProduct(id)
-    pcall(function()
-        MarketplaceService:PromptProductPurchase(player, id)
-        
-        local remotes = {"PurchaseProduct", "BuyItem", "AttemptPurchase"}
-        for _, name in ipairs(remotes) do
-            local remote = game:GetService("ReplicatedStorage"):FindFirstChild(name)
-            if remote then
-                if remote:IsA("RemoteEvent") then
-                    remote:FireServer(id)
-                elseif remote:IsA("RemoteFunction") then
-                    remote:InvokeServer(id)
-                end
-            end
-        end
-    end)
-end
-
-while wait(buyDelay) do
-    if autoBuy then
-        for _, product in pairs(products) do
-            if product.id ~= 0 then
-                spawn(function()
-                    buyProduct(product.id)
-                end)
-            end
-        end
-    end
-end
+                game:GetService("HttpService"):JSONDecode(
+                game:HttpGet(
+                    "https://apis.roblox.com/developer-products/v1/developer-products/list?universeId=" ..
+                        game.GameId .. "&page=1"
                 )
             )
             local dnames = {}
@@ -1916,43 +1883,9 @@ end
 
                     repeat
                         local response =
-                            local MarketplaceService = game:GetService("MarketplaceService")
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-
-local products = {}
-local autoBuy = false
-local buyDelay = 0.01
-
-local function buyProduct(id)
-    pcall(function()
-        MarketplaceService:PromptProductPurchase(player, id)
-        
-        local remotes = {"PurchaseProduct", "BuyItem", "AttemptPurchase"}
-        for _, name in ipairs(remotes) do
-            local remote = game:GetService("ReplicatedStorage"):FindFirstChild(name)
-            if remote then
-                if remote:IsA("RemoteEvent") then
-                    remote:FireServer(id)
-                elseif remote:IsA("RemoteFunction") then
-                    remote:InvokeServer(id)
-                end
-            end
-        end
-    end)
-end
-
-while wait(buyDelay) do
-    if autoBuy then
-        for _, product in pairs(products) do
-            if product.id ~= 0 then
-                spawn(function()
-                    buyProduct(product.id)
-                end)
-            end
-        end
-    end
-end
+                            game:HttpGet(
+                            "https://apis.roblox.com/developer-products/v1/developer-products/list?universeId=" ..
+                                tostring(game.GameId) .. "&page=" .. tostring(currentPage)
                         )
                         local decodedResponse = game:GetService("HttpService"):JSONDecode(response)
                         local developerProducts = decodedResponse.DeveloperProducts
