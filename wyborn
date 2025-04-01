@@ -1,3 +1,4 @@
+setclipboard("wyborn")
 local wybornsuccess,wyvernerror = pcall(function()
 getgenv().wyvern_version = "1.5.6"
 
